@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>안심케어 - 고독사 방지 앱</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            position: relative;
+            padding-bottom: 80px; /* 하단 네비게이션 공간 */
+        }
+
+        .page {
+            display: none;
+            padding: 20px;
+            min-height: calc(100vh - 80px);
+            overflow-y: auto;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            margin: -20px -20px 20px -20px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .tagline {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-small {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        /* 하단 네비게이션 바 */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 10px 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border: none;
+            background: none;
+            color: #666;
+        }
+
+        .nav-item.active {
+            background: #f0f4ff;
+            color: #667eea;
+        }
+
+        .nav-item:hover {
+            background: #f8f9fa;
+        }
+
+        .nav-icon {
+            font-size: 20px;
+            margin-bottom: 2px;
+        }
+
+        .nav-text {
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* 친구 관련 스타일 */
+        .friend-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .friend-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .friend-info {
+            flex: 1;
+        }
+
+        .friend-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .friend-email {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .friend-status {
+            font-size: 12px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .status-active {
+            background: #28a745;
+        }
+
+        .status-warning {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .status-danger {
+            background: #dc3545;
+        }
+
+        .status-critical {
+            background: #6f42c1;
+        }
+
+        /* 카카오톡 친구 목록 스타일 */
+        .kakao-friends {
+            background: #ffe812;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .kakao-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .kakao-icon {
+            background: #3c1e1e;
+            color: #ffe812;
+            padding: 8px;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .kakao-friend-item {
+            background: white;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* 광고 배너 스타일 */
+        .ad-banner {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .ad-content {
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .ad-content:hover {
+            background-color: #f8f9fa;
+        }
+
+        .ad-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .ad-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            transition: background-color 0.3s;
+        }
+
+        .tab.active {
+            background: #667eea;
+            color: white;
+        }
+
+        /* 알림 스타일 */
+        .notification-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .notification-time {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .notification-message {
+            font-weight: bold;
+        }
+
+        /* 프로필 설정 스타일 */
+        .profile-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .profile-section h3 {
+            margin-bottom: 15px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .file-upload {
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .file-upload:hover {
+            border-color: #667eea;
+        }
+
+        .emergency-info {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+            margin-bottom: 20px;
+        }
+
+        .emergency-info strong {
+            color: #856404;
+        }
+
+        /* 스위치 버튼 스타일 */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .notification-setting {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .notification-setting:last-child {
+            border-bottom: none;
+        }
+
+        .setting-info {
+            flex: 1;
+        }
+
+        .setting-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .setting-description {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* 숨김 처리 */
+        .hidden {
+            display: none !important;
+        }
+
+        /* 카카오 로그인 버튼 스타일 */
+        .kakao-login-btn {
+            background-color: #FEE500;
+            color: #000000;
+            border: none;
+            border-radius: 8px;
+            padding: 16px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            max-width: 300px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .kakao-login-btn:hover {
+            background-color: #F7E600;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .kakao-login-btn img {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 로그인 페이지 -->
+        <div id="login-page" class="page active">
+            <div class="header" style="margin-bottom: 60px;">
+                <div class="logo">안심케어</div>
+                <div class="tagline">소중한 사람들과 함께하는 안전한 일상</div>
+            </div>
+            
+            <div style="text-align: center; padding: 0 20px;">
+                <div style="margin-bottom: 50px;">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23667eea' opacity='0.1'/%3E%3Cpath d='M50 25 C30 25 25 40 25 50 C25 65 40 75 50 75 C60 75 75 65 75 50 C75 40 70 25 50 25' fill='%23667eea'/%3E%3Cpath d='M40 45 C40 40 44 36 49 36 C54 36 58 40 58 45 C58 48 56 50 53 51 L53 55 L45 55 L45 51 C42 50 40 48 40 45' fill='white'/%3E%3Ccircle cx='49' cy='65' r='3' fill='white'/%3E%3C/svg%3E" alt="안심케어 로고" style="width: 100px; height: 100px;">
+                </div>
+                
+                <div style="margin-bottom: 30px;">
+                    <h2 style="color: #333; font-size: 22px; margin-bottom: 10px;">안녕하세요!</h2>
+                    <p style="color: #666; font-size: 16px;">카카오 계정으로 간편하게 시작하세요</p>
+                </div>
+                
+                <button class="kakao-login-btn" onclick="loginWithKakao()">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath fill='%233C1E1E' d='M10 2C5.6 2 2 5.1 2 8.9c0 2.4 1.4 4.5 3.6 5.7l-.8 2.9c-.1.3.2.5.5.4l3.2-2.1c.5.1 1 .1 1.5.1 4.4 0 8-3.1 8-6.9S14.4 2 10 2z'/%3E%3C/svg%3E" alt="카카오">
+                    <span>카카오로 로그인</span>
+                </button>
+                
+                <div style="margin-top: 40px; font-size: 14px; color: #999;">
+                    카카오 계정으로 간편하게 로그인하고<br>
+                    소중한 사람들의 안전을 지켜주세요
+                </div>
+            </div>
+        </div>
+
+        <!-- 친구 관리 페이지 (로그인 후 기본 페이지) -->
+        <div id="friends-page" class="page">
+            <div class="header">
+                <div class="logo">친구 관리</div>
+                <div class="tagline">안전한 네트워크를 구축하세요</div>
+            </div>
+
+            <!-- 카카오톡 친구 연동 섹션 -->
+            <div class="kakao-friends">
+                <div class="kakao-header">
+                    <div class="kakao-icon">톡</div>
+                    <div>
+                        <div style="font-weight: bold;">카카오톡 친구</div>
+                        <div style="font-size: 12px;">친구를 안심케어에 초대하세요</div>
+                    </div>
+                </div>
+                <div id="kakao-friends-list">
+                    <!-- 카카오톡 친구 목록이 여기에 표시됩니다 -->
+                </div>
+                <button class="btn" onclick="loadKakaoFriends()" style="margin-top: 10px;">카카오톡 친구 불러오기</button>
+            </div>
+
+
+            <!-- 현재 친구 목록 -->
+            <div class="friend-list">
+                <h3 style="margin-bottom: 15px;">현재 친구 목록</h3>
+                <div id="friends-container">
+                    <!-- 친구 목록이 여기에 동적으로 생성됩니다 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 친구 상태 페이지 -->
+        <div id="status-page" class="page">
+            <div class="header">
+                <div class="logo">친구 상태</div>
+                <div class="tagline">실시간 안전 상태 확인</div>
+            </div>
+
+            <div class="emergency-info">
+                <strong>🚨 상태 안내</strong>
+                <div style="margin-top: 8px; font-size: 14px;">
+                    <div>🟢 정상: 24시간 이내 활동</div>
+                    <div>🟡 주의: 24시간 무응답</div>
+                    <div>🔴 위험: 48시간 무응답</div>
+                    <div>🟣 응급: 72시간 무응답</div>
+                </div>
+            </div>
+
+            <div id="status-container">
+                <!-- 친구 상태가 여기에 표시됩니다 -->
+            </div>
+        </div>
+
+        <!-- 광고 배너 페이지 -->
+        <div id="ads-page" class="page">
+            <div class="header">
+                <div class="logo">광고 배너</div>
+                <div class="tagline">유용한 서비스를 확인하세요</div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showAdTab('insurance')">보험</button>
+                <button class="tab" onclick="showAdTab('funeral')">상조</button>
+                <button class="tab" onclick="showAdTab('lawyer')">상속변호사</button>
+            </div>
+
+            <div id="ads-container">
+                <!-- 광고 배너가 여기에 표시됩니다 -->
+            </div>
+        </div>
+
+        <!-- 알림 설정 페이지 -->
+        <div id="notifications-page" class="page">
+            <div class="header">
+                <div class="logo">알림 설정</div>
+                <div class="tagline">알림 설정을 관리하세요</div>
+            </div>
+
+            <div class="profile-section">
+                <h3>알림 설정</h3>
+                
+                <div class="notification-setting">
+                    <div class="setting-info">
+                        <div class="setting-title">푸시 알림 허용</div>
+                        <div class="setting-description">앱의 모든 알림을 받습니다</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="push-notifications" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="notification-setting">
+                    <div class="setting-info">
+                        <div class="setting-title">친구 상태 알림</div>
+                        <div class="setting-description">친구들의 활동 상태 변화를 알림</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="friend-notifications" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="notification-setting">
+                    <div class="setting-info">
+                        <div class="setting-title">비상 알림 (24시간 무응답)</div>
+                        <div class="setting-description">친구가 하루 동안 응답하지 않을 때</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="emergency-notifications" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="notification-setting">
+                    <div class="setting-info">
+                        <div class="setting-title">긴급 알림 (48시간 무응답)</div>
+                        <div class="setting-description">친구가 이틀 동안 응답하지 않을 때</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="critical-notifications" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div class="notification-setting">
+                    <div class="setting-info">
+                        <div class="setting-title">응급 신고 알림 (72시간 무응답)</div>
+                        <div class="setting-description">소방서(119), 경찰서(112), 관할 행정복지센터에 자동 신고</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="emergency-call-notifications" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <button class="btn" onclick="saveNotificationSettings()" style="margin-top: 20px;">설정 저장</button>
+            </div>
+
+            <div class="profile-section">
+                <h3>최근 알림</h3>
+                <div id="recent-notifications">
+                    <!-- 최근 알림이 여기에 표시됩니다 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 프로필 설정 페이지 -->
+        <div id="profile-page" class="page">
+            <div class="header">
+                <div class="logo">프로필 설정</div>
+                <div class="tagline">개인 정보를 관리하세요</div>
+            </div>
+
+            <div class="emergency-info">
+                <strong>⚠️ 중요 안내</strong>
+                <div style="margin-top: 8px; font-size: 14px;">
+                    응급상황 시 국가기관에 신속히 정보를 제공하기 위해<br>
+                    가능한 상세하게 정보를 입력해주세요.
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>기본 정보</h3>
+                <div class="form-group">
+                    <label for="profile-name">이름 *</label>
+                    <input type="text" id="profile-name" placeholder="실명을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label for="profile-phone">전화번호 *</label>
+                    <input type="tel" id="profile-phone" placeholder="010-0000-0000">
+                </div>
+                <div class="form-group">
+                    <label for="profile-birth">생년월일</label>
+                    <input type="date" id="profile-birth">
+                </div>
+                <div class="form-group">
+                    <label for="profile-gender">성별</label>
+                    <select id="profile-gender">
+                        <option value="">선택하세요</option>
+                        <option value="male">남성</option>
+                        <option value="female">여성</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>거주지 정보</h3>
+                <div class="form-group">
+                    <label for="profile-address">주소 *</label>
+                    <input type="text" id="profile-address" placeholder="시/도, 구/군을 포함한 주소">
+                </div>
+                <div class="form-group">
+                    <label for="profile-detail-address">상세주소</label>
+                    <input type="text" id="profile-detail-address" placeholder="동/호수, 건물명 등">
+                </div>
+                <div class="form-group">
+                    <label for="profile-postal">우편번호</label>
+                    <input type="text" id="profile-postal" placeholder="12345">
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>비상 연락처</h3>
+                <div class="form-group">
+                    <label for="emergency-contact1">비상연락처 1 (가족)</label>
+                    <input type="tel" id="emergency-contact1" placeholder="010-0000-0000">
+                </div>
+                <div class="form-group">
+                    <label for="emergency-name1">관계</label>
+                    <input type="text" id="emergency-name1" placeholder="예: 부모님, 형제자매">
+                </div>
+                <div class="form-group">
+                    <label for="emergency-contact2">비상연락처 2</label>
+                    <input type="tel" id="emergency-contact2" placeholder="010-0000-0000">
+                </div>
+                <div class="form-group">
+                    <label for="emergency-name2">관계</label>
+                    <input type="text" id="emergency-name2" placeholder="예: 친구, 동료">
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>의료 정보</h3>
+                <div class="form-group">
+                    <label for="blood-type">혈액형</label>
+                    <select id="blood-type">
+                        <option value="">선택하세요</option>
+                        <option value="A+">A형 Rh+</option>
+                        <option value="A-">A형 Rh-</option>
+                        <option value="B+">B형 Rh+</option>
+                        <option value="B-">B형 Rh-</option>
+                        <option value="AB+">AB형 Rh+</option>
+                        <option value="AB-">AB형 Rh-</option>
+                        <option value="O+">O형 Rh+</option>
+                        <option value="O-">O형 Rh-</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="medical-conditions">지병/복용약물</label>
+                    <textarea id="medical-conditions" rows="3" placeholder="당뇨, 고혈압 등 지병이나 정기 복용 약물이 있다면 입력하세요"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="allergies">알레르기</label>
+                    <input type="text" id="allergies" placeholder="약물/음식 알레르기가 있다면 입력하세요">
+                </div>
+            </div>
+
+            <div class="profile-section">
+                <h3>기타 정보</h3>
+                <div class="form-group">
+                    <label for="workplace">직장/학교</label>
+                    <input type="text" id="workplace" placeholder="직장이나 학교명을 입력하세요">
+                </div>
+                <div class="form-group">
+                    <label for="special-notes">특이사항</label>
+                    <textarea id="special-notes" rows="3" placeholder="응급상황 시 알아야 할 특별한 사항이 있다면 입력하세요"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>영정사진 업데이트</label>
+                    <div class="file-upload" onclick="document.getElementById('update-profile-pic').click()">
+                        <div>📷 새 사진 선택</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">명확한 얼굴 사진 권장</div>
+                    </div>
+                    <input type="file" id="update-profile-pic" accept="image/*" style="display: none;" onchange="updateProfilePic(this)">
+                </div>
+            </div>
+
+            <button class="btn" onclick="updateProfile()">프로필 업데이트</button>
+            <button class="btn btn-danger" onclick="logout()" style="margin-top: 10px;">로그아웃</button>
+        </div>
+
+        <!-- 하단 네비게이션 바 -->
+        <div class="bottom-nav" id="bottom-nav" style="display: none;">
+            <button class="nav-item active" onclick="showMainPage('friends-page')" id="nav-friends">
+                <div class="nav-icon">👥</div>
+                <div class="nav-text">친구관리</div>
+            </button>
+            <button class="nav-item" onclick="showMainPage('status-page')" id="nav-status">
+                <div class="nav-icon">📊</div>
+                <div class="nav-text">친구상태</div>
+            </button>
+            <button class="nav-item" onclick="showMainPage('ads-page')" id="nav-ads">
+                <div class="nav-icon">📢</div>
+                <div class="nav-text">광고배너</div>
+            </button>
+            <button class="nav-item" onclick="showMainPage('notifications-page')" id="nav-notifications">
+                <div class="nav-icon">🔔</div>
+                <div class="nav-text">알림설정</div>
+            </button>
+            <button class="nav-item" onclick="showMainPage('profile-page')" id="nav-profile">
+                <div class="nav-icon">⚙️</div>
+                <div class="nav-text">프로필설정</div>
+            </button>
+        </div>
+    </div>
+
+    <!-- 카카오 SDK -->
+    <script src="https://developers.kakao.com/sdk/js/kakao.js"></script>
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <script src="supabase-db.js"></script>
+    <script src="app-supabase.js"></script>
+</body>
+</html>
