@@ -26,13 +26,13 @@ class SupabaseDataManager {
     async loginWithKakao(kakaoUserInfo) {
         try {
             // 카카오 사용자 정보로 Supabase 사용자 생성/업데이트
-            const { data: existingUser } = await supabase
+            const { data: existingUser, error: searchError } = await supabase
                 .from('users')
                 .select('*')
                 .eq('kakao_id', kakaoUserInfo.id)
-                .single();
+                .maybeSingle();
 
-            if (existingUser) {
+            if (existingUser && !searchError) {
                 // 기존 사용자 업데이트
                 const { data, error } = await supabase
                     .from('users')
@@ -43,7 +43,7 @@ class SupabaseDataManager {
                     })
                     .eq('id', existingUser.id)
                     .select()
-                    .single();
+                    .maybeSingle();
 
                 if (error) throw error;
                 this.currentUser = data;
@@ -51,19 +51,21 @@ class SupabaseDataManager {
                 return data;
             } else {
                 // 새 사용자 생성
+                const newUserData = {
+                    kakao_id: kakaoUserInfo.id.toString(),
+                    name: kakaoUserInfo.properties?.nickname || '카카오 사용자',
+                    email: kakaoUserInfo.kakao_account?.email || `kakao_${kakaoUserInfo.id}@kakao.com`,
+                    phone: '010-0000-0000',
+                    address: '주소를 입력해주세요',
+                    is_kakao_user: true,
+                    profile_pic: kakaoUserInfo.properties?.profile_image
+                };
+
                 const { data, error } = await supabase
                     .from('users')
-                    .insert({
-                        kakao_id: kakaoUserInfo.id,
-                        name: kakaoUserInfo.properties?.nickname || '카카오 사용자',
-                        email: kakaoUserInfo.kakao_account?.email || `kakao_${kakaoUserInfo.id}@kakao.com`,
-                        phone: '010-0000-0000',
-                        address: '주소를 입력해주세요',
-                        is_kakao_user: true,
-                        profile_pic: kakaoUserInfo.properties?.profile_image
-                    })
+                    .insert(newUserData)
                     .select()
-                    .single();
+                    .maybeSingle();
 
                 if (error) throw error;
                 
@@ -87,7 +89,7 @@ class SupabaseDataManager {
                 .from('users')
                 .select('*')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
             if (error) throw error;
             return data;
