@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>안심케어 - 고독사 방지 앱</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         * {
             margin: 0;
@@ -515,20 +516,37 @@
                 <div class="tagline">안전한 네트워크를 구축하세요</div>
             </div>
 
-            <!-- 카카오톡 친구 연동 섹션 -->
+            <!-- 친구 초대 섹션 -->
             <div class="kakao-friends">
                 <div class="kakao-header">
                     <div class="kakao-icon">톡</div>
                     <div>
-                        <div style="font-weight: bold;">카카오톡 친구</div>
-                        <div style="font-size: 12px;">친구를 안심케어에 초대하세요</div>
+                        <div style="font-weight: bold;">카카오톡으로 친구 초대</div>
+                        <div style="font-size: 12px;">초대 코드를 생성하여 친구를 초대하세요</div>
                     </div>
                 </div>
-                <div id="kakao-friends-list">
-                    <!-- 카카오톡 친구 목록이 여기에 표시됩니다 -->
+                
+                <!-- 초대 코드 생성 -->
+                <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                    <h4 style="margin-bottom: 10px;">내 초대 코드</h4>
+                    <div id="my-invite-code" style="font-size: 24px; font-weight: bold; text-align: center; padding: 10px; background: #f0f0f0; border-radius: 8px; margin-bottom: 10px;">
+                        <!-- 초대 코드가 여기에 표시됩니다 -->
+                    </div>
+                    <button class="btn" onclick="generateAndShareInviteCode()" style="width: 100%;">
+                        📤 카카오톡으로 초대하기
+                    </button>
                 </div>
-                <button class="btn" onclick="loadKakaoFriends()" style="margin-top: 10px;">카카오톡 친구 불러오기</button>
+                
+                <!-- 초대 코드 입력 -->
+                <div style="background: white; padding: 15px; border-radius: 8px;">
+                    <h4 style="margin-bottom: 10px;">초대 코드로 친구 추가</h4>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" id="friend-invite-code" placeholder="초대 코드 입력" style="flex: 1; text-transform: uppercase;">
+                        <button class="btn btn-small" onclick="addFriendByInviteCode()">추가</button>
+                    </div>
+                </div>
             </div>
+
 
 
             <!-- 현재 친구 목록 -->
@@ -665,14 +683,28 @@
 
             <div class="emergency-info">
                 <strong>⚠️ 중요 안내</strong>
-                <div style="margin-top: 8px; font-size: 14px;">
-                    응급상황 시 국가기관에 신속히 정보를 제공하기 위해<br>
-                    가능한 상세하게 정보를 입력해주세요.
+                <div style="margin-top: 8px; font-size: 14px; line-height: 1.5;">
+                    응급상황 시 국가기관에 신속히<br>
+                    정보를 제공하기 위해<br>
+                    가능한 상세하게 정보를<br>
+                    입력해주세요.
                 </div>
             </div>
 
             <div class="profile-section">
                 <h3>기본 정보</h3>
+                
+                <!-- 프로필 사진 미리보기 -->
+                <div class="form-group">
+                    <label>현재 프로필 사진</label>
+                    <div style="text-align: center; margin: 15px 0;">
+                        <img id="profile-pic-preview" 
+                             src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIiBmaWxsPSIjZjBmMGYwIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI4NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7sgqzsp4Ag7JeG7J2MPC90ZXh0Pgo8L3N2Zz4K" 
+                             alt="프로필 사진" 
+                             style="width: 150px; height: 150px; border-radius: 50%; border: 3px solid #ddd; object-fit: cover;">
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label for="profile-name">이름 *</label>
                     <input type="text" id="profile-name" placeholder="실명을 입력하세요">
@@ -768,11 +800,25 @@
                     <textarea id="special-notes" rows="3" placeholder="응급상황 시 알아야 할 특별한 사항이 있다면 입력하세요"></textarea>
                 </div>
                 <div class="form-group">
-                    <label>영정사진 업데이트</label>
-                    <div class="file-upload" onclick="document.getElementById('update-profile-pic').click()">
-                        <div>📷 새 사진 선택</div>
-                        <div style="font-size: 12px; color: #666; margin-top: 5px;">명확한 얼굴 사진 권장</div>
+                    <label>영정 사진 업로드(선택)</label>
+                    <div style="display: flex; gap: 10px;">
+                        <div class="file-upload" onclick="document.getElementById('update-profile-pic').click()" style="flex: 1; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                            <div>📷 사진<br>업로드</div>
+                        </div>
+                        <button type="button" class="btn" onclick="updateProfilePicUrl()" style="flex: 1;">
+                            🔗 URL 입력
+                        </button>
                     </div>
+                    
+                    <!-- 영정사진 미리보기 -->
+                    <div style="text-align: center; margin: 15px 0;">
+                        <div style="font-size: 14px; font-weight: bold; margin-bottom: 10px; color: #555;">영정사진 미리보기</div>
+                        <img id="memorial-pic-preview" 
+                             src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIiBmaWxsPSIjZjBmMGYwIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI4NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7sg4Dsp4Ag7JeG7J2MPC90ZXh0Pgo8L3N2Zz4K" 
+                             alt="영정사진" 
+                             style="width: 120px; height: 120px; border: 2px solid #ddd; object-fit: cover; border-radius: 8px;">
+                    </div>
+                    
                     <input type="file" id="update-profile-pic" accept="image/*" style="display: none;" onchange="updateProfilePic(this)">
                 </div>
             </div>

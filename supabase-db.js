@@ -119,6 +119,26 @@ class SupabaseDataManager {
         }
     }
 
+    // 현재 사용자 정보 새로고침
+    async refreshCurrentUser() {
+        if (!this.currentUser) return;
+        
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('id', this.currentUser.id)
+                .single();
+
+            if (error) throw error;
+            this.currentUser = data;
+            return data;
+        } catch (error) {
+            console.error('사용자 정보 새로고침 오류:', error);
+            throw error;
+        }
+    }
+
     // 사용자 활동 기록
     async updateUserActivity(userId, activityType = 'check_in') {
         try {

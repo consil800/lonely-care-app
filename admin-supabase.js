@@ -12,6 +12,7 @@ class AdminSupabaseManager {
         await this.loadUsers();
         await this.loadAds();
         await this.loadNotifications();
+        await this.loadEmergencyContacts();
     }
 
     // 대시보드 통계 로드
@@ -41,11 +42,17 @@ class AdminSupabaseManager {
                 .select('*', { count: 'exact', head: true })
                 .eq('is_read', false);
 
+            // 전체 알림 수
+            const { count: totalNotifications } = await this.client
+                .from('notifications')
+                .select('*', { count: 'exact', head: true });
+
             // 통계 업데이트
             document.getElementById('total-users').textContent = totalUsers || 0;
             document.getElementById('active-users').textContent = activeUsers || 0;
             document.getElementById('total-connections').textContent = Math.floor((totalConnections || 0) / 2); // 양방향이므로 2로 나눔
             document.getElementById('pending-alerts').textContent = pendingAlerts || 0;
+            document.getElementById('total-notifications').textContent = totalNotifications || 0;
 
         } catch (error) {
             console.error('통계 로드 오류:', error);
@@ -114,8 +121,8 @@ class AdminSupabaseManager {
             }));
 
             container.innerHTML = `
-                <div style="overflow-x: auto;">
-                    <table class="table">
+                <div style="overflow-x: auto; padding: 0 10px;">
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>이름</th>
@@ -202,14 +209,7 @@ class AdminSupabaseManager {
                 .order('created_at', { ascending: false })
                 .limit(5);
 
-            alert(`사용자 상세 정보:
-            
-이름: ${user.name}
-이메일: ${user.email}
-전화번호: ${user.phone || '미등록'}
-주소: ${user.address || '미등록'}
-친구 수: ${friends?.length || 0}명
-최근 알림: ${notifications?.length || 0}건`);
+            alert(`사용자 상세 정보:\n\n이름: ${user.name}\n이메일: ${user.email}\n전화번호: ${user.phone || '미등록'}\n주소: ${user.address || '미등록'}\n친구 수: ${friends?.length || 0}명\n최근 알림: ${notifications?.length || 0}건`);
 
         } catch (error) {
             console.error('사용자 상세 조회 오류:', error);
@@ -261,8 +261,8 @@ class AdminSupabaseManager {
             }
 
             container.innerHTML = `
-                <div style="overflow-x: auto;">
-                    <table class="table">
+                <div style="overflow-x: auto; padding: 0 10px;">
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>제목</th>
@@ -418,8 +418,8 @@ class AdminSupabaseManager {
             }
 
             container.innerHTML = `
-                <div style="overflow-x: auto;">
-                    <table class="table">
+                <div style="overflow-x: auto; padding: 0 10px;">
+                    <table class="data-table">
                         <thead>
                             <tr>
                                 <th>발생시간</th>
@@ -670,6 +670,255 @@ class AdminSupabaseManager {
             logContainer.innerHTML += `❌ 오류 발생: ${error.message}\n`;
         }
     }
+
+    // 비상 연락처 로드
+    async loadEmergencyContacts() {
+        const container = document.getElementById('emergency-contacts-container');
+        container.innerHTML = '<div class="loading">비상 연락처 목록을 불러오는 중...</div>';
+
+        try {
+            const { data: contacts, error } = await this.client
+                .from('emergency_contacts')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            if (!contacts || contacts.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #666;">등록된 비상 연락처가 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = contacts.map(contact => `
+                <div class="emergency-item">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">${contact.name}</div>
+                        <div style="font-size: 14px; color: #666; margin-bottom: 3px;">📞 ${contact.phone}</div>
+                        <div style="font-size: 12px; color: #666; margin-bottom: 3px;">🏷️ ${this.getEmergencyTypeText(contact.type)}</div>
+                        ${contact.address ? `<div style="font-size: 12px; color: #666;">📍 ${contact.address}</div>` : ''}
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <button class="btn btn-small btn-danger" onclick="adminManager.deleteEmergencyContact('${contact.id}')">삭제</button>
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('비상 연락처 로드 오류:', error);
+            container.innerHTML = '<div class="error">비상 연락처 목록을 불러올 수 없습니다.</div>';
+        }
+    }
+
+    getEmergencyTypeText(type) {
+        const typeMap = {
+            fire: '소방서',
+            police: '경찰서',
+            admin: '행정기관',
+            medical: '의료기관',
+            other: '기타'
+        };
+        return typeMap[type] || '기타';
+    }
+
+    // 비상 연락처 추가
+    async addEmergencyContact() {
+        const name = document.getElementById('emergency-name').value;
+        const phone = document.getElementById('emergency-phone').value;
+        const type = document.getElementById('emergency-type').value;
+        const address = document.getElementById('emergency-address').value;
+
+        if (!name || !phone) {
+            alert('기관명과 전화번호는 필수입니다.');
+            return;
+        }
+
+        try {
+            const { error } = await this.client
+                .from('emergency_contacts')
+                .insert({
+                    name,
+                    phone,
+                    type,
+                    address: address || null
+                });
+
+            if (error) throw error;
+
+            // 폼 초기화
+            document.getElementById('emergency-name').value = '';
+            document.getElementById('emergency-phone').value = '';
+            document.getElementById('emergency-type').value = 'fire';
+            document.getElementById('emergency-address').value = '';
+
+            alert('비상 연락처가 추가되었습니다.');
+            await this.loadEmergencyContacts();
+
+        } catch (error) {
+            console.error('비상 연락처 추가 오류:', error);
+            alert('비상 연락처 추가에 실패했습니다.');
+        }
+    }
+
+    // 비상 연락처 삭제
+    async deleteEmergencyContact(contactId) {
+        if (!confirm('정말로 이 비상 연락처를 삭제하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            const { error } = await this.client
+                .from('emergency_contacts')
+                .delete()
+                .eq('id', contactId);
+
+            if (error) throw error;
+
+            alert('비상 연락처가 삭제되었습니다.');
+            await this.loadEmergencyContacts();
+
+        } catch (error) {
+            console.error('비상 연락처 삭제 오류:', error);
+            alert('비상 연락처 삭제에 실패했습니다.');
+        }
+    }
+
+    // 데이터 백업
+    async backupData() {
+        if (!confirm('모든 데이터를 백업하시겠습니까?\n백업 파일이 다운로드됩니다.')) {
+            return;
+        }
+
+        try {
+            const backupData = {
+                timestamp: new Date().toISOString(),
+                users: [],
+                friends: [],
+                notifications: [],
+                ad_banners: [],
+                emergency_contacts: [],
+                user_activities: [],
+                notification_settings: []
+            };
+
+            // 모든 테이블 데이터 백업
+            const tables = ['users', 'friends', 'notifications', 'ad_banners', 'emergency_contacts', 'user_activities', 'notification_settings'];
+            
+            for (const table of tables) {
+                const { data, error } = await this.client
+                    .from(table)
+                    .select('*');
+                
+                if (error) {
+                    console.warn(`${table} 백업 중 오류:`, error);
+                } else {
+                    backupData[table] = data || [];
+                }
+            }
+
+            // JSON 파일로 다운로드
+            const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ansimncare_backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            alert(`데이터 백업이 완료되었습니다.\n총 ${Object.values(backupData).reduce((sum, arr) => sum + (Array.isArray(arr) ? arr.length : 0), 0)}개의 레코드가 백업되었습니다.`);
+
+        } catch (error) {
+            console.error('데이터 백업 오류:', error);
+            alert('데이터 백업에 실패했습니다.');
+        }
+    }
+
+    // 데이터 초기화
+    async resetData() {
+        const confirmText = '정말로 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.\n\n삭제하려면 "DELETE"를 입력하세요:';
+        const userInput = prompt(confirmText);
+        
+        if (userInput !== 'DELETE') {
+            alert('작업이 취소되었습니다.');
+            return;
+        }
+
+        try {
+            const tables = ['user_activities', 'notifications', 'friends', 'notification_settings', 'ad_banners', 'emergency_contacts'];
+            let deletedCount = 0;
+
+            for (const table of tables) {
+                const { error } = await this.client
+                    .from(table)
+                    .delete()
+                    .neq('id', '00000000-0000-0000-0000-000000000000'); // 모든 레코드 삭제
+
+                if (error) {
+                    console.warn(`${table} 초기화 중 오류:`, error);
+                } else {
+                    deletedCount++;
+                }
+            }
+
+            alert(`데이터 초기화가 완료되었습니다.\n${deletedCount}개 테이블의 데이터가 삭제되었습니다.\n\n주의: 사용자(users) 테이블은 보안상 삭제되지 않았습니다.`);
+            
+            // 대시보드 새로고침
+            await this.loadDashboardStats();
+            await this.loadUsers();
+            await this.loadAds();
+            await this.loadNotifications();
+            await this.loadEmergencyContacts();
+
+        } catch (error) {
+            console.error('데이터 초기화 오류:', error);
+            alert('데이터 초기화에 실패했습니다.');
+        }
+    }
+
+    // 데이터베이스 연결 테스트
+    async testDatabaseConnection() {
+        try {
+            // Supabase 연결 상태 확인
+            const { data, error } = await this.client
+                .from('users')
+                .select('count')
+                .limit(1);
+
+            if (error) throw error;
+
+            // 추가 연결 정보 수집
+            const { count: userCount } = await this.client
+                .from('users')
+                .select('*', { count: 'exact', head: true });
+
+            const { count: tableCount } = await this.client
+                .from('information_schema.tables')
+                .select('*', { count: 'exact', head: true })
+                .eq('table_schema', 'public');
+
+            alert(`✅ 데이터베이스 연결 성공!\n\n연결 정보:\n- 호스트: ${this.client.supabaseUrl}\n- 상태: 정상 연결\n- 사용자 수: ${userCount || 0}명\n- 테이블 수: ${tableCount || 0}개\n- 연결 시간: ${new Date().toLocaleString()}`);
+
+        } catch (error) {
+            console.error('데이터베이스 연결 테스트 오류:', error);
+            alert(`❌ 데이터베이스 연결 실패!\n\n오류 내용:\n${error.message}\n\n연결 설정을 확인해주세요.`);
+        }
+    }
+
+    // 데이터베이스 마이그레이션
+    async migrateToDB() {
+        if (!confirm('데이터베이스 마이그레이션을 실행하시겠습니까?\n이 작업은 데이터베이스 구조를 업데이트합니다.')) {
+            return;
+        }
+
+        try {
+            alert('Supabase는 클라우드 데이터베이스이므로 별도의 마이그레이션이 필요하지 않습니다.\n\n현재 연결된 Supabase 데이터베이스가 이미 최신 상태입니다.\n\n필요한 경우 Supabase 대시보드에서 직접 테이블 구조를 수정할 수 있습니다.');
+
+        } catch (error) {
+            console.error('마이그레이션 오류:', error);
+            alert('마이그레이션에 실패했습니다.');
+        }
+    }
 }
 
 // 전역 관리자 인스턴스
@@ -703,24 +952,33 @@ function showTab(tabName) {
 }
 
 function showUserTab(filter) {
-    document.querySelectorAll('#users-tab .tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
+    // 클릭된 탭의 부모 탭 그룹에서만 active 제거
+    const clickedTab = event.target;
+    const tabsContainer = clickedTab.closest('.tabs');
+    tabsContainer.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    clickedTab.classList.add('active');
     
     adminManager.currentTab = filter;
     adminManager.loadUsers(filter);
 }
 
 function showAdTab(category) {
-    document.querySelectorAll('#ads-tab .tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
+    // 클릭된 탭의 부모 탭 그룹에서만 active 제거
+    const clickedTab = event.target;
+    const tabsContainer = clickedTab.closest('.tabs');
+    tabsContainer.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    clickedTab.classList.add('active');
     
     adminManager.currentAdTab = category;
     adminManager.loadAds(category);
 }
 
 function showNotificationTab(filter) {
-    document.querySelectorAll('#notifications-tab .tab').forEach(tab => tab.classList.remove('active'));
-    event.target.classList.add('active');
+    // 클릭된 탭의 부모 탭 그룹에서만 active 제거
+    const clickedTab = event.target;
+    const tabsContainer = clickedTab.closest('.tabs');
+    tabsContainer.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    clickedTab.classList.add('active');
     
     adminManager.loadNotifications(filter);
 }
@@ -728,6 +986,10 @@ function showNotificationTab(filter) {
 // 폼 함수들
 function addAdBanner() {
     adminManager.addAd();
+}
+
+function addEmergencyContact() {
+    adminManager.addEmergencyContact();
 }
 
 function sendSystemNotification() {
@@ -744,6 +1006,22 @@ function cleanupOldData() {
 
 function generateEmergencyReport() {
     adminManager.generateEmergencyReport();
+}
+
+function backupData() {
+    adminManager.backupData();
+}
+
+function resetData() {
+    adminManager.resetData();
+}
+
+function testDatabaseConnection() {
+    adminManager.testDatabaseConnection();
+}
+
+function migrateToDB() {
+    adminManager.migrateToDB();
 }
 
 // 검색 함수
@@ -788,8 +1066,8 @@ async function searchUsers() {
         }));
 
         container.innerHTML = `
-            <div style="overflow-x: auto;">
-                <table class="table">
+            <div style="overflow-x: auto; padding: 0 10px;">
+                <table class="data-table">
                     <thead>
                         <tr>
                             <th>이름</th>

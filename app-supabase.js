@@ -139,7 +139,7 @@ function showMainPage(pageId) {
     switch(pageId) {
         case 'friends-page':
             loadFriends();
-            loadKakaoFriends();
+            loadMyInviteCode();
             break;
         case 'status-page':
             loadFriendStatus();
@@ -427,6 +427,18 @@ async function loadProfile() {
     document.getElementById('allergies').value = user.allergies || '';
     document.getElementById('workplace').value = user.workplace || '';
     document.getElementById('special-notes').value = user.special_notes || '';
+    
+    // 카카오 프로필 사진 표시 (기본 정보 섹션)
+    const profilePicElement = document.getElementById('profile-pic-preview');
+    if (profilePicElement) {
+        profilePicElement.src = user.profile_pic || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIiBmaWxsPSIjZjBmMGYwIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI4NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7sgqzsp4Ag7JeG7J2MPC90ZXh0Pgo8L3N2Zz4K';
+    }
+    
+    // 영정사진 표시 (영정사진 섹션)
+    const memorialPicElement = document.getElementById('memorial-pic-preview');
+    if (memorialPicElement) {
+        memorialPicElement.src = user.memorial_pic || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgdmlld0JveD0iMCAwIDE1MCAxNTAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIiBmaWxsPSIjZjBmMGYwIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI4NSIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5OTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7sg4Dsp4Ag7JeG7J2MPC90ZXh0Pgo8L3N2Zz4K';
+    }
 }
 
 // 프로필 업데이트
@@ -466,44 +478,288 @@ async function updateProfile() {
     }
 }
 
-// 카카오톡 친구 목록 (Supabase 연동 전 임시)
-function loadKakaoFriends() {
-    const container = document.getElementById('kakao-friends-list');
-    container.innerHTML = '<div style="text-align: center; color: #666; background: white; padding: 10px; border-radius: 8px;">카카오톡 친구 기능은 추가 개발 중입니다.</div>';
+// 초대 코드 생성 및 카카오톡 공유
+async function generateAndShareInviteCode() {
+    if (!dbManager.currentUser) {
+        alert('로그인이 필요합니다.');
+        return;
+    }
+
+    try {
+        // 6자리 초대 코드 생성
+        const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        
+        // 기존 초대 코드 비활성화 (선택사항)
+        try {
+            await supabase
+                .from('invite_codes')
+                .update({ is_active: false })
+                .eq('inviter_id', dbManager.currentUser.id)
+                .eq('is_active', true);
+        } catch (err) {
+            console.log('기존 초대 코드 비활성화 스킵');
+        }
+        
+        // 새 초대 코드 저장
+        const { data, error } = await supabase
+            .from('invite_codes')
+            .insert({
+                code: code,
+                inviter_id: dbManager.currentUser.id,
+                inviter_name: dbManager.currentUser.name,
+                expires_at: new Date(Date.now() + 24*60*60*1000).toISOString(), // 24시간 유효
+                is_active: true
+            })
+            .select();
+
+        if (error) throw error;
+        
+        // 초대 코드 표시
+        document.getElementById('my-invite-code').textContent = code;
+        
+        // 카카오톡 공유
+        if (window.Kakao) {
+            Kakao.Share.sendDefault({
+                objectType: 'feed',
+                content: {
+                    title: '안심케어 친구 초대',
+                    description: `${dbManager.currentUser.name}님이 안심케어에 초대했습니다.\n초대 코드: ${code}`,
+                    imageUrl: 'https://raw.githubusercontent.com/kakao/kakao-js-sdk/master/assets/kakao.png',
+                    link: {
+                        mobileWebUrl: window.location.origin,
+                        webUrl: window.location.origin,
+                    },
+                },
+                buttons: [
+                    {
+                        title: '안심케어 참여하기',
+                        link: {
+                            mobileWebUrl: window.location.origin,
+                            webUrl: window.location.origin,
+                        },
+                    },
+                ],
+            });
+        }
+        
+    } catch (error) {
+        console.error('초대 코드 생성 오류:', error);
+        alert('초대 코드 생성에 실패했습니다.');
+    }
 }
 
-// 파일 업로드 처리
+// 초대 코드로 친구 추가
+async function addFriendByInviteCode() {
+    const inviteCode = document.getElementById('friend-invite-code').value.toUpperCase();
+    
+    if (!inviteCode || !dbManager.currentUser) {
+        alert('초대 코드를 입력하세요.');
+        return;
+    }
+    
+    try {
+        // 초대 코드 확인
+        const { data: invite, error: inviteError } = await supabase
+            .from('invite_codes')
+            .select('*')
+            .eq('code', inviteCode)
+            .eq('is_active', true)
+            .maybeSingle();
+            
+        if (inviteError || !invite) {
+            alert('유효하지 않은 초대 코드입니다.');
+            return;
+        }
+        
+        // 만료 시간 확인
+        if (new Date(invite.expires_at) < new Date()) {
+            alert('만료된 초대 코드입니다.');
+            return;
+        }
+        
+        // 자기 자신 초대 방지
+        if (invite.inviter_id === dbManager.currentUser.id) {
+            alert('자신의 초대 코드는 사용할 수 없습니다.');
+            return;
+        }
+        
+        // 이미 친구인지 확인
+        const { data: existingFriend } = await supabase
+            .from('friends')
+            .select('*')
+            .eq('user_id', dbManager.currentUser.id)
+            .eq('friend_id', invite.inviter_id)
+            .maybeSingle();
+            
+        if (existingFriend) {
+            alert('이미 친구로 등록된 사용자입니다.');
+            return;
+        }
+        
+        // 친구 관계 생성 (양방향)
+        const { error } = await supabase
+            .from('friends')
+            .insert([
+                { 
+                    user_id: dbManager.currentUser.id, 
+                    friend_id: invite.inviter_id,
+                    status: 'active'
+                },
+                { 
+                    user_id: invite.inviter_id, 
+                    friend_id: dbManager.currentUser.id,
+                    status: 'active'
+                }
+            ]);
+
+        if (error) throw error;
+        
+        // 초대 코드 사용 처리
+        await supabase
+            .from('invite_codes')
+            .update({ 
+                is_active: false,
+                used_by: dbManager.currentUser.id,
+                used_at: new Date().toISOString()
+            })
+            .eq('id', invite.id);
+        
+        // 알림 생성
+        await dbManager.createNotification(
+            invite.inviter_id,
+            dbManager.currentUser.id,
+            'friend_added',
+            `${dbManager.currentUser.name}님이 초대를 수락하여 친구가 되었습니다.`
+        );
+        
+        document.getElementById('friend-invite-code').value = '';
+        alert(`${invite.inviter_name}님과 친구가 되었습니다!`);
+        loadFriends();
+        
+    } catch (error) {
+        console.error('친구 추가 오류:', error);
+        alert('친구 추가에 실패했습니다.');
+    }
+}
+
+// 페이지 로드 시 내 초대 코드 표시
+async function loadMyInviteCode() {
+    if (!dbManager.currentUser) return;
+    
+    try {
+        const { data: activeCode, error } = await supabase
+            .from('invite_codes')
+            .select('code')
+            .eq('inviter_id', dbManager.currentUser.id)
+            .eq('is_active', true)
+            .maybeSingle();
+            
+        if (!error && activeCode) {
+            document.getElementById('my-invite-code').textContent = activeCode.code;
+        } else {
+            document.getElementById('my-invite-code').innerHTML = '<span style="color: #999; font-size: 14px;">초대 코드를 생성하세요</span>';
+        }
+    } catch (error) {
+        console.error('초대 코드 로드 오류:', error);
+        document.getElementById('my-invite-code').innerHTML = '<span style="color: #999; font-size: 14px;">초대 코드를 생성하세요</span>';
+    }
+}
+
+// 파일 업로드 처리 (Supabase Storage 사용)
 async function handleFileUpload(input) {
     const file = input.files[0];
     if (!file || !dbManager.currentUser) return;
     
+    // 파일 크기 체크 (10MB 제한)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('파일 크기는 10MB 이하로 제한됩니다.');
+        input.value = '';
+        return;
+    }
+    
+    // 이미지 파일 체크
+    if (!file.type.startsWith('image/')) {
+        alert('이미지 파일만 업로드 가능합니다.');
+        input.value = '';
+        return;
+    }
+    
     try {
-        // Supabase Storage에 업로드
-        const fileName = `${dbManager.currentUser.id}/${Date.now()}_${file.name}`;
-        const { data, error } = await supabase.storage
-            .from('profiles')
-            .upload(fileName, file);
+        // 고유한 파일명 생성
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${dbManager.currentUser.id}/memorial_${Date.now()}.${fileExt}`;
         
-        if (error) throw error;
+        // Supabase Storage에 업로드 (임시로 Base64로 저장)
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64Data = e.target.result;
+            
+            try {
+                // 데이터베이스에 Base64 데이터로 저장 (memorial_pic 컬럼)
+                await dbManager.updateUserProfile(dbManager.currentUser.id, {
+                    memorial_pic: base64Data
+                });
+                
+                // 즉시 미리보기 업데이트
+                const memorialPicElement = document.getElementById('memorial-pic-preview');
+                if (memorialPicElement) {
+                    memorialPicElement.src = base64Data;
+                }
+                
+                alert('영정사진이 업로드되었습니다.');
+                input.value = ''; // 파일 입력 초기화
+                
+                // 사용자 정보 새로고침
+                await dbManager.refreshCurrentUser();
+            } catch (error) {
+                console.error('파일 업로드 오류:', error);
+                alert('파일 업로드에 실패했습니다.');
+                input.value = '';
+            }
+        };
         
-        // 프로필 URL 업데이트
-        const { data: { publicUrl } } = supabase.storage
-            .from('profiles')
-            .getPublicUrl(fileName);
+        reader.onerror = function() {
+            alert('파일 읽기에 실패했습니다.');
+            input.value = '';
+        };
         
-        await dbManager.updateUserProfile(dbManager.currentUser.id, {
-            profile_pic: publicUrl
-        });
+        reader.readAsDataURL(file);
         
-        alert('프로필 사진이 업로드되었습니다.');
     } catch (error) {
-        console.error('파일 업로드 오류:', error);
-        alert('파일 업로드에 실패했습니다.');
+        console.error('파일 처리 오류:', error);
+        alert('파일 처리에 실패했습니다.');
+        input.value = '';
     }
 }
 
 function updateProfilePic(input) {
     handleFileUpload(input);
+}
+
+// 영정사진 URL 직접 입력 함수
+async function updateProfilePicUrl() {
+    if (!dbManager.currentUser) return;
+    
+    const imageUrl = prompt('영정사진 URL을 입력하세요:', 'https://picsum.photos/200/200');
+    
+    if (!imageUrl || imageUrl.trim() === '') return;
+    
+    try {
+        await dbManager.updateUserProfile(dbManager.currentUser.id, {
+            memorial_pic: imageUrl.trim()
+        });
+        
+        // 즉시 미리보기 업데이트
+        const memorialPicElement = document.getElementById('memorial-pic-preview');
+        if (memorialPicElement) {
+            memorialPicElement.src = imageUrl.trim();
+        }
+        
+        alert('영정사진이 업데이트되었습니다.');
+    } catch (error) {
+        console.error('영정사진 업데이트 오류:', error);
+        alert('영정사진 업데이트에 실패했습니다.');
+    }
 }
 
 // 친구 목록 권한 요청

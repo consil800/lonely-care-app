@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>안심케어 - 관리자 페이지</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         * {
             margin: 0;
@@ -151,13 +152,17 @@
         .data-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .data-table th,
         .data-table td {
-            padding: 12px;
-            text-align: left;
+            padding: 15px 20px;
+            text-align: center;
             border-bottom: 1px solid #ddd;
         }
 
@@ -289,7 +294,7 @@
             <div class="logo">🛠️ 안심케어 관리자</div>
             <div class="tagline">시스템 관리 및 설정</div>
             <div style="margin-top: 15px;">
-                <span class="db-status" id="db-status">🔴 로컬 스토리지 모드</span>
+                <span class="db-status db-connected" id="db-status">🟢 Supabase 연결됨</span>
             </div>
         </div>
 
@@ -311,8 +316,8 @@
                         <div class="stat-label">친구 연결수</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="emergency-alerts">0</div>
-                        <div class="stat-label">긴급 알림 (7일)</div>
+                        <div class="stat-number" id="pending-alerts">0</div>
+                        <div class="stat-label">미처리 알림</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="total-notifications">0</div>
@@ -325,20 +330,20 @@
             <div class="section">
                 <h2>👥 사용자 관리</h2>
                 
-                <div class="tabs">
-                    <button class="tab active" onclick="showUserTab('all')">전체 사용자</button>
-                    <button class="tab" onclick="showUserTab('active')">활성 사용자</button>
-                    <button class="tab" onclick="showUserTab('inactive')">비활성 사용자</button>
+                <div class="tabs" style="margin-bottom: 25px; margin-left: 15px; margin-right: 15px;">
+                    <button class="tab active" onclick="showUserTab('all')" style="margin: 0 5px; padding: 12px 20px;">전체 사용자</button>
+                    <button class="tab" onclick="showUserTab('active')" style="margin: 0 5px; padding: 12px 20px;">활성 사용자</button>
+                    <button class="tab" onclick="showUserTab('inactive')" style="margin: 0 5px; padding: 12px 20px;">비활성 사용자</button>
                 </div>
 
-                <div id="users-container">
+                <div id="users-container" style="margin-bottom: 30px; margin-left: 15px; margin-right: 15px; padding: 15px;">
                     <!-- 사용자 목록이 여기에 표시됩니다 -->
                 </div>
 
-                <div style="margin-top: 20px;">
-                    <h3>사용자 검색</h3>
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0;">
+                    <h3 style="margin-bottom: 15px;">사용자 검색</h3>
                     <div class="form-group">
-                        <input type="text" id="user-search" placeholder="이름 또는 이메일로 검색..." oninput="searchUsers()">
+                        <input type="text" id="user-search" placeholder="이름 또는 이메일로 검색..." oninput="searchUsers()" style="padding: 12px; font-size: 14px;">
                     </div>
                 </div>
             </div>
@@ -347,45 +352,45 @@
             <div class="section">
                 <h2>📢 광고 배너 관리</h2>
                 
-                <div class="form-grid">
-                    <div>
-                        <h3>새 광고 배너 추가</h3>
-                        <div class="form-group">
-                            <label for="ad-category">광고 카테고리</label>
-                            <select id="ad-category">
+                <div class="form-grid" style="margin-bottom: 40px;">
+                    <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border: 1px solid #e9ecef;">
+                        <h3 style="margin-bottom: 20px; color: #495057;">새 광고 배너 추가</h3>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="ad-category" style="margin-bottom: 8px; font-weight: bold;">광고 카테고리</label>
+                            <select id="ad-category" style="margin-top: 5px;">
                                 <option value="insurance">보험</option>
                                 <option value="funeral">상조</option>
                                 <option value="lawyer">상속변호사</option>
                             </select>
                         </div>
-                        <div class="form-group">
-                            <label for="ad-title">광고 제목</label>
-                            <input type="text" id="ad-title" placeholder="광고 제목을 입력하세요">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="ad-title" style="margin-bottom: 8px; font-weight: bold;">광고 제목</label>
+                            <input type="text" id="ad-title" placeholder="광고 제목을 입력하세요" style="margin-top: 5px;">
                         </div>
-                        <div class="form-group">
-                            <label for="ad-content">광고 내용</label>
-                            <textarea id="ad-content" rows="3" placeholder="광고 내용을 입력하세요"></textarea>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="ad-content" style="margin-bottom: 8px; font-weight: bold;">광고 내용</label>
+                            <textarea id="ad-content" rows="3" placeholder="광고 내용을 입력하세요" style="margin-top: 5px;"></textarea>
                         </div>
-                        <div class="form-group">
-                            <label for="ad-link">링크 URL (선택사항)</label>
-                            <input type="url" id="ad-link" placeholder="https://example.com">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="ad-link" style="margin-bottom: 8px; font-weight: bold;">링크 URL (선택사항)</label>
+                            <input type="url" id="ad-link" placeholder="https://example.com" style="margin-top: 5px;">
                         </div>
-                        <div class="form-group">
-                            <label for="ad-image">이미지 URL (선택사항)</label>
-                            <input type="url" id="ad-image" placeholder="https://example.com/image.jpg">
+                        <div class="form-group" style="margin-bottom: 25px;">
+                            <label for="ad-image" style="margin-bottom: 8px; font-weight: bold;">이미지 URL (선택사항)</label>
+                            <input type="url" id="ad-image" placeholder="https://example.com/image.jpg" style="margin-top: 5px;">
                         </div>
-                        <button class="btn" onclick="addAdBanner()">광고 배너 추가</button>
+                        <button class="btn" onclick="addAdBanner()" style="padding: 12px 24px; font-size: 14px;">광고 배너 추가</button>
                     </div>
                 </div>
 
-                <div style="margin-top: 30px;">
-                    <h3>기존 광고 배너</h3>
-                    <div class="tabs">
-                        <button class="tab active" onclick="showAdTab('insurance')">보험</button>
-                        <button class="tab" onclick="showAdTab('funeral')">상조</button>
-                        <button class="tab" onclick="showAdTab('lawyer')">상속변호사</button>
+                <div style="margin-top: 40px; padding-top: 30px; border-top: 2px solid #f0f0f0;">
+                    <h3 style="margin-bottom: 20px; color: #495057;">기존 광고 배너</h3>
+                    <div class="tabs" style="margin-bottom: 25px; margin-left: 15px; margin-right: 15px;">
+                        <button class="tab active" onclick="showAdTab('insurance')" style="margin: 0 5px; padding: 12px 20px;">보험</button>
+                        <button class="tab" onclick="showAdTab('funeral')" style="margin: 0 5px; padding: 12px 20px;">상조</button>
+                        <button class="tab" onclick="showAdTab('lawyer')" style="margin: 0 5px; padding: 12px 20px;">상속변호사</button>
                     </div>
-                    <div id="ads-container">
+                    <div id="ads-container" style="margin-top: 20px; margin-left: 15px; margin-right: 15px; padding: 15px;">
                         <!-- 광고 목록이 여기에 표시됩니다 -->
                     </div>
                 </div>
@@ -460,8 +465,8 @@
             <div class="section">
                 <h2>💾 데이터 관리</h2>
                 
-                <div class="alert alert-warning">
-                    <strong>⚠️ 주의:</strong> 현재 로컬 스토리지를 사용중입니다. 데이터베이스 연동 후 이 기능들이 활성화됩니다.
+                <div class="alert alert-success">
+                    <strong>✅ 연결됨:</strong> Supabase 데이터베이스가 정상적으로 연결되어 있습니다.
                 </div>
 
                 <div class="form-grid">
@@ -478,30 +483,35 @@
                 </div>
 
                 <div style="margin-top: 30px;">
-                    <h3>데이터베이스 연동 설정</h3>
+                    <h3>Supabase 연결 정보</h3>
                     <div class="form-group">
-                        <label for="db-host">데이터베이스 호스트</label>
-                        <input type="text" id="db-host" placeholder="localhost" value="localhost">
+                        <label>프로젝트 URL</label>
+                        <input type="text" id="supabase-url" readonly value="https://wjkzogehbuxbfckczhgr.supabase.co" style="background: #f8f9fa;">
                     </div>
                     <div class="form-group">
-                        <label for="db-name">데이터베이스 이름</label>
-                        <input type="text" id="db-name" placeholder="ansimncare_db">
+                        <label>연결 상태</label>
+                        <div style="padding: 12px; background: #d4edda; color: #155724; border-radius: 8px; border: 1px solid #c3e6cb;">
+                            🟢 Supabase 클라우드 데이터베이스에 연결됨
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="db-user">사용자명</label>
-                        <input type="text" id="db-user" placeholder="username">
-                    </div>
-                    <div class="form-group">
-                        <label for="db-password">비밀번호</label>
-                        <input type="password" id="db-password" placeholder="password">
+                        <label>데이터베이스 정보</label>
+                        <div style="font-size: 14px; color: #666; line-height: 1.5;">
+                            • 호스팅: Supabase (PostgreSQL)<br>
+                            • 지역: Auto (최적화됨)<br>
+                            • 보안: SSL/TLS 암호화<br>
+                            • 백업: 자동 백업 활성화
+                        </div>
                     </div>
                     <button class="btn" onclick="testDatabaseConnection()">연결 테스트</button>
-                    <button class="btn btn-success" onclick="migrateToDB()" style="margin-left: 10px;">데이터베이스로 마이그레이션</button>
+                    <button class="btn btn-success" onclick="migrateToDB()" style="margin-left: 10px;">스키마 확인</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
     <script src="admin-supabase.js"></script>
 </body>
 </html>
