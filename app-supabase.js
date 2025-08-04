@@ -268,6 +268,7 @@ function getStatusInfo(status) {
         warning: { text: '🟡 주의', class: 'status-warning' },
         danger: { text: '🔴 위험', class: 'status-danger' },
         critical: { text: '🟣 응급', class: 'status-critical' },
+        custom: { text: '🔵 커스텀', class: 'status-custom' },
         unknown: { text: '❓ 알수없음', class: 'status-inactive' }
     };
     return statusMap[status] || statusMap.unknown;

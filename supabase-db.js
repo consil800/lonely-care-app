@@ -256,10 +256,32 @@ class SupabaseDataManager {
             const now = new Date();
             const hoursSinceActivity = (now - lastActivity) / (1000 * 60 * 60);
 
-            if (hoursSinceActivity < 24) return 'active';
-            if (hoursSinceActivity < 48) return 'warning';
-            if (hoursSinceActivity < 72) return 'danger';
-            return 'critical';
+            // 활성화된 모니터링 설정 가져오기
+            const { data: settings } = await supabase
+                .from('monitoring_settings')
+                .select('hours, alert_level')
+                .eq('is_active', true)
+                .order('hours', { ascending: true });
+
+            if (!settings || settings.length === 0) {
+                // 기본값 사용
+                if (hoursSinceActivity < 24) return 'active';
+                if (hoursSinceActivity < 48) return 'warning';
+                if (hoursSinceActivity < 72) return 'danger';
+                return 'critical';
+            }
+
+            // 활성 상태 체크 (가장 작은 시간 이하)
+            if (hoursSinceActivity < settings[0].hours) return 'active';
+
+            // 설정된 시간대별 상태 확인
+            for (let i = settings.length - 1; i >= 0; i--) {
+                if (hoursSinceActivity >= settings[i].hours) {
+                    return settings[i].alert_level;
+                }
+            }
+
+            return 'active';
         } catch (error) {
             console.error('친구 상태 확인 오류:', error);
             return 'unknown';
@@ -416,16 +438,29 @@ class SupabaseDataManager {
                     .single();
 
                 if (!recentAlert && status !== 'active' && status !== 'unknown') {
+                    // 상태에 해당하는 모니터링 설정 가져오기
+                    const { data: setting } = await supabase
+                        .from('monitoring_settings')
+                        .select('hours, name')
+                        .eq('alert_level', status)
+                        .eq('is_active', true)
+                        .single();
+
                     let message = '';
+                    const hours = setting?.hours;
+                    
                     switch (status) {
                         case 'warning':
-                            message = `${friend.name}님이 24시간 동안 응답하지 않습니다.`;
+                            message = `${friend.name}님이 ${hours || 24}시간 동안 응답하지 않습니다.`;
                             break;
                         case 'danger':
-                            message = `⚠️ ${friend.name}님이 48시간 동안 응답하지 않습니다!`;
+                            message = `⚠️ ${friend.name}님이 ${hours || 48}시간 동안 응답하지 않습니다!`;
                             break;
                         case 'critical':
-                            message = `🚨 긴급! ${friend.name}님이 72시간 동안 응답하지 않습니다!`;
+                            message = `🚨 긴급! ${friend.name}님이 ${hours || 72}시간 동안 응답하지 않습니다!`;
+                            break;
+                        case 'custom':
+                            message = `🔔 ${friend.name}님이 ${hours}시간 동안 응답하지 않습니다. (${setting?.name || '커스텀'})`;
                             break;
                     }
                     

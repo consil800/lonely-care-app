@@ -149,6 +149,11 @@
             background: #28a745;
         }
 
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
@@ -286,6 +291,46 @@
         .badge-warning { background: #ffc107; color: #333; }
         .badge-danger { background: #dc3545; }
         .badge-info { background: #17a2b8; }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .status-active { background: #d4edda; color: #155724; }
+        .status-warning { background: #fff3cd; color: #856404; }
+        .status-danger { background: #f8d7da; color: #721c24; }
+        .status-critical { background: #dc3545; color: white; }
+        .status-unknown { background: #e2e3e5; color: #383d41; }
+
+        .monitoring-item {
+            background: white;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #17a2b8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .monitoring-item.warning {
+            border-left-color: #ffc107;
+        }
+
+        .monitoring-item.danger {
+            border-left-color: #fd7e14;
+        }
+
+        .monitoring-item.critical {
+            border-left-color: #dc3545;
+        }
+
+        .monitoring-item.custom {
+            border-left-color: #6f42c1;
+        }
     </style>
 </head>
 <body>
@@ -434,6 +479,49 @@
                     <div id="emergency-contacts-container">
                         <!-- 비상 연락처 목록이 여기에 표시됩니다 -->
                     </div>
+                </div>
+            </div>
+
+            <!-- 모니터링 시간 설정 섹션 -->
+            <div class="section">
+                <h2>⏱️ 모니터링 시간 설정</h2>
+                
+                <div class="form-grid">
+                    <div>
+                        <h3>새 모니터링 시간 추가</h3>
+                        <div class="form-group">
+                            <label for="monitoring-name">설정 이름</label>
+                            <input type="text" id="monitoring-name" placeholder="예: 테스트용 (1시간)">
+                        </div>
+                        <div class="form-group">
+                            <label for="monitoring-hours">시간 (hours)</label>
+                            <input type="number" id="monitoring-hours" min="1" max="168" placeholder="예: 96">
+                        </div>
+                        <div class="form-group">
+                            <label for="monitoring-level">알림 레벨</label>
+                            <select id="monitoring-level">
+                                <option value="warning">경고 (Warning)</option>
+                                <option value="danger">위험 (Danger)</option>
+                                <option value="critical">긴급 (Critical)</option>
+                                <option value="custom">커스텀 (Custom)</option>
+                            </select>
+                        </div>
+                        <button class="btn" onclick="addMonitoringSetting()">모니터링 시간 추가</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <h3>현재 모니터링 시간 설정</h3>
+                    <div id="monitoring-settings-container">
+                        <!-- 모니터링 시간 설정 목록이 여기에 표시됩니다 -->
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 8px;">
+                    <p style="margin: 0; color: #1976d2;">
+                        <strong>ℹ️ 안내:</strong> 모니터링 시간은 사용자의 마지막 활동 이후 경과 시간을 기준으로 합니다.
+                        기본값은 24시간(경고), 48시간(위험), 72시간(긴급)입니다.
+                    </p>
                 </div>
             </div>
 

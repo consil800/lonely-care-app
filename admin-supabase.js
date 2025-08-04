@@ -13,6 +13,7 @@ class AdminSupabaseManager {
         await this.loadAds();
         await this.loadNotifications();
         await this.loadEmergencyContacts();
+        await this.loadMonitoringSettings();
     }
 
     // 대시보드 통계 로드
@@ -782,6 +783,172 @@ class AdminSupabaseManager {
         }
     }
 
+    // 모니터링 시간 설정 로드
+    async loadMonitoringSettings() {
+        const container = document.getElementById('monitoring-settings-container');
+        container.innerHTML = '<div class="loading">모니터링 시간 설정을 불러오는 중...</div>';
+
+        try {
+            const { data: settings, error } = await this.client
+                .from('monitoring_settings')
+                .select('*')
+                .order('hours', { ascending: true });
+
+            if (error) throw error;
+
+            if (!settings || settings.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #666;">등록된 모니터링 시간 설정이 없습니다.</div>';
+                return;
+            }
+
+            container.innerHTML = settings.map(setting => `
+                <div class="monitoring-item ${setting.alert_level}">
+                    <div style="flex: 1;">
+                        <div style="font-weight: bold; margin-bottom: 5px;">${setting.name}</div>
+                        <div style="font-size: 14px; color: #666; margin-bottom: 3px;">⏱️ ${setting.hours}시간</div>
+                        <div style="font-size: 12px; color: #666;">
+                            <span class="badge badge-${this.getAlertLevelBadgeClass(setting.alert_level)}">
+                                ${this.getAlertLevelText(setting.alert_level)}
+                            </span>
+                            ${setting.is_active ? 
+                                '<span style="color: #28a745; margin-left: 10px;">✓ 활성</span>' : 
+                                '<span style="color: #dc3545; margin-left: 10px;">✗ 비활성</span>'
+                            }
+                        </div>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 5px;">
+                        <button class="btn btn-small ${setting.is_active ? 'btn-danger' : 'btn-success'}" 
+                                onclick="adminManager.toggleMonitoringSetting('${setting.id}', ${!setting.is_active})">
+                            ${setting.is_active ? '비활성화' : '활성화'}
+                        </button>
+                        ${['warning', 'danger', 'critical'].includes(setting.alert_level) ? '' : 
+                            `<button class="btn btn-small btn-danger" onclick="adminManager.deleteMonitoringSetting('${setting.id}')">삭제</button>`
+                        }
+                    </div>
+                </div>
+            `).join('');
+
+        } catch (error) {
+            console.error('모니터링 설정 로드 오류:', error);
+            container.innerHTML = '<div class="error">모니터링 설정을 불러올 수 없습니다.</div>';
+        }
+    }
+
+    getAlertLevelBadgeClass(level) {
+        const classMap = {
+            warning: 'warning',
+            danger: 'danger',
+            critical: 'danger',
+            custom: 'info'
+        };
+        return classMap[level] || 'info';
+    }
+
+    getAlertLevelText(level) {
+        const textMap = {
+            warning: '경고',
+            danger: '위험',
+            critical: '긴급',
+            custom: '커스텀'
+        };
+        return textMap[level] || level;
+    }
+
+    // 모니터링 시간 설정 추가
+    async addMonitoringSetting() {
+        const name = document.getElementById('monitoring-name').value;
+        const hours = parseInt(document.getElementById('monitoring-hours').value);
+        const alertLevel = document.getElementById('monitoring-level').value;
+
+        if (!name || !hours || hours < 1) {
+            alert('설정 이름과 시간(1시간 이상)을 입력해주세요.');
+            return;
+        }
+
+        if (hours > 168) {
+            alert('모니터링 시간은 168시간(7일)을 초과할 수 없습니다.');
+            return;
+        }
+
+        try {
+            // 중복 시간 체크
+            const { data: existing } = await this.client
+                .from('monitoring_settings')
+                .select('hours')
+                .eq('hours', hours)
+                .single();
+
+            if (existing) {
+                alert(`이미 ${hours}시간 설정이 존재합니다.`);
+                return;
+            }
+
+            const { error } = await this.client
+                .from('monitoring_settings')
+                .insert({
+                    name,
+                    hours,
+                    alert_level: alertLevel,
+                    is_active: true
+                });
+
+            if (error) throw error;
+
+            // 폼 초기화
+            document.getElementById('monitoring-name').value = '';
+            document.getElementById('monitoring-hours').value = '';
+            document.getElementById('monitoring-level').value = 'warning';
+
+            alert('모니터링 시간 설정이 추가되었습니다.');
+            await this.loadMonitoringSettings();
+
+        } catch (error) {
+            console.error('모니터링 설정 추가 오류:', error);
+            alert('모니터링 설정 추가에 실패했습니다.');
+        }
+    }
+
+    // 모니터링 설정 활성화/비활성화
+    async toggleMonitoringSetting(settingId, isActive) {
+        try {
+            const { error } = await this.client
+                .from('monitoring_settings')
+                .update({ is_active: isActive })
+                .eq('id', settingId);
+
+            if (error) throw error;
+
+            await this.loadMonitoringSettings();
+
+        } catch (error) {
+            console.error('모니터링 설정 상태 변경 오류:', error);
+            alert('모니터링 설정 상태 변경에 실패했습니다.');
+        }
+    }
+
+    // 모니터링 설정 삭제
+    async deleteMonitoringSetting(settingId) {
+        if (!confirm('정말로 이 모니터링 시간 설정을 삭제하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            const { error } = await this.client
+                .from('monitoring_settings')
+                .delete()
+                .eq('id', settingId);
+
+            if (error) throw error;
+
+            alert('모니터링 시간 설정이 삭제되었습니다.');
+            await this.loadMonitoringSettings();
+
+        } catch (error) {
+            console.error('모니터링 설정 삭제 오류:', error);
+            alert('모니터링 설정 삭제에 실패했습니다.');
+        }
+    }
+
     // 데이터 백업
     async backupData() {
         if (!confirm('모든 데이터를 백업하시겠습니까?\n백업 파일이 다운로드됩니다.')) {
@@ -990,6 +1157,10 @@ function addAdBanner() {
 
 function addEmergencyContact() {
     adminManager.addEmergencyContact();
+}
+
+function addMonitoringSetting() {
+    adminManager.addMonitoringSetting();
 }
 
 function sendSystemNotification() {
