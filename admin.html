@@ -331,6 +331,47 @@
         .monitoring-item.custom {
             border-left-color: #6f42c1;
         }
+
+        /* 페이지네이션 스타일 추가 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding: 20px 0;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .pagination button.active {
+            background: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+
+        .pagination button:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+
+        .pagination .page-info {
+            padding: 0 15px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -384,6 +425,9 @@
                 <div id="users-container" style="margin-bottom: 30px; margin-left: 15px; margin-right: 15px; padding: 15px;">
                     <!-- 사용자 목록이 여기에 표시됩니다 -->
                 </div>
+
+                <!-- 사용자 페이지네이션 -->
+                <div class="pagination" id="userPagination"></div>
 
                 <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #f0f0f0;">
                     <h3 style="margin-bottom: 15px;">사용자 검색</h3>
@@ -532,12 +576,16 @@
                 <div class="tabs">
                     <button class="tab active" onclick="showNotificationTab('all')">전체 알림</button>
                     <button class="tab" onclick="showNotificationTab('critical')">긴급 알림</button>
+                    <button class="tab" onclick="showNotificationTab('system')">시스템 알림</button>
                     <button class="tab" onclick="showNotificationTab('recent')">최근 24시간</button>
                 </div>
 
                 <div id="notifications-container">
                     <!-- 알림 목록이 여기에 표시됩니다 -->
                 </div>
+
+                <!-- 알림 페이지네이션 -->
+                <div class="pagination" id="notificationPagination"></div>
 
                 <div style="margin-top: 20px;">
                     <h3>시스템 알림 발송</h3>
@@ -574,7 +622,7 @@
                     <h3>Supabase 연결 정보</h3>
                     <div class="form-group">
                         <label>프로젝트 URL</label>
-                        <input type="text" id="supabase-url" readonly value="https://wjkzogehbuxbfckczhgr.supabase.co" style="background: #f8f9fa;">
+                        <input type="text" id="supabase-url" readonly value="https://flcftzxwxcvpucqupqwz.supabase.co" style="background: #f8f9fa;">
                     </div>
                     <div class="form-group">
                         <label>연결 상태</label>

@@ -385,12 +385,22 @@ class AdminSupabaseManager {
         }
     }
 
-    // 알림 목록 로드
-    async loadNotifications(filter = 'all') {
+    // 알림 목록 로드 (페이지네이션 추가)
+    async loadNotifications(filter = 'all', page = 1) {
         const container = document.getElementById('notifications-container');
+        const paginationContainer = document.getElementById('notificationPagination');
+        const itemsPerPage = 20;
+        const offset = (page - 1) * itemsPerPage;
+        
         container.innerHTML = '<div class="loading">알림 목록을 불러오는 중...</div>';
 
         try {
+            // 전체 개수 먼저 조회
+            let countQuery = this.client
+                .from('notifications')
+                .select('*', { count: 'exact', head: true });
+            
+            // 데이터 조회 쿼리
             let query = this.client
                 .from('notifications')
                 .select(`
@@ -401,20 +411,31 @@ class AdminSupabaseManager {
 
             // 필터 적용
             if (filter === 'critical') {
-                query = query.eq('type', 'critical');
+                countQuery = countQuery.in('type', ['danger', 'critical']);
+                query = query.in('type', ['danger', 'critical']);
+            } else if (filter === 'system') {
+                countQuery = countQuery.eq('type', 'system');
+                query = query.eq('type', 'system');
             } else if (filter === 'recent') {
                 const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+                countQuery = countQuery.gte('created_at', yesterday);
                 query = query.gte('created_at', yesterday);
             }
 
+            // 전체 개수 가져오기
+            const { count: totalCount } = await countQuery;
+            const totalPages = Math.ceil((totalCount || 0) / itemsPerPage);
+
+            // 페이지네이션 적용하여 데이터 가져오기
             const { data: notifications, error } = await query
                 .order('created_at', { ascending: false })
-                .limit(50);
+                .range(offset, offset + itemsPerPage - 1);
 
             if (error) throw error;
 
             if (!notifications || notifications.length === 0) {
                 container.innerHTML = '<div style="text-align: center; color: #666;">알림이 없습니다.</div>';
+                paginationContainer.innerHTML = '';
                 return;
             }
 
@@ -429,15 +450,14 @@ class AdminSupabaseManager {
                                 <th>유형</th>
                                 <th>메시지</th>
                                 <th>상태</th>
-                                <th>처리</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${notifications.map(notification => `
                                 <tr>
                                     <td>${new Date(notification.created_at).toLocaleString()}</td>
-                                    <td>${notification.user?.name || '알 수 없음'}</td>
-                                    <td>${notification.friend?.name || '알 수 없음'}</td>
+                                    <td>${notification.user?.name || notification.user?.email || '알 수 없음'}</td>
+                                    <td>${notification.friend?.name || '-'}</td>
                                     <td>
                                         <span class="status-badge ${this.getNotificationTypeClass(notification.type)}">
                                             ${this.getNotificationTypeText(notification.type)}
@@ -449,18 +469,17 @@ class AdminSupabaseManager {
                                             ${notification.is_read ? '읽음' : '미읽음'}
                                         </span>
                                     </td>
-                                    <td>
-                                        ${!notification.is_read ? 
-                                            `<button class="btn btn-small" onclick="adminManager.markNotificationRead('${notification.id}')">읽음 처리</button>` : 
-                                            '<span style="color: #666;">처리 완료</span>'
-                                        }
-                                    </td>
                                 </tr>
                             `).join('')}
                         </tbody>
                     </table>
                 </div>
             `;
+
+            // 페이지네이션 표시
+            this.displayPagination(paginationContainer, page, totalPages, (newPage) => {
+                this.loadNotifications(filter, newPage);
+            });
 
         } catch (error) {
             console.error('알림 로드 오류:', error);
@@ -470,20 +489,76 @@ class AdminSupabaseManager {
 
     getNotificationTypeClass(type) {
         const typeMap = {
-            warning: 'status-warning',
-            danger: 'status-danger',
-            critical: 'status-critical'
+            'system': 'status-info',
+            'warning': 'status-warning',
+            'danger': 'status-danger',
+            'critical': 'status-critical'
         };
         return typeMap[type] || 'status-active';
     }
 
     getNotificationTypeText(type) {
         const typeMap = {
-            warning: '주의',
-            danger: '위험',
-            critical: '응급'
+            'system': '시스템',
+            'warning': '주의',
+            'danger': '위험',
+            'critical': '응급'
         };
         return typeMap[type] || '일반';
+    }
+    
+    // 페이지네이션 표시
+    displayPagination(container, currentPage, totalPages, onPageChange) {
+        if (totalPages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        let html = '';
+        
+        // 이전 버튼
+        html += `<button onclick="adminManager.changePage('${container.id}', ${currentPage - 1}, ${totalPages}, ${onPageChange})" 
+                 ${currentPage === 1 ? 'disabled' : ''}>이전</button>`;
+        
+        // 페이지 번호
+        const maxButtons = 5;
+        let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+        let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+        
+        if (endPage - startPage < maxButtons - 1) {
+            startPage = Math.max(1, endPage - maxButtons + 1);
+        }
+        
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="${i === currentPage ? 'active' : ''}" 
+                     onclick="adminManager.handlePageClick(${i}, '${container.id}')">${i}</button>`;
+        }
+        
+        // 페이지 정보
+        html += `<span class="page-info">${currentPage} / ${totalPages}</span>`;
+        
+        // 다음 버튼
+        html += `<button onclick="adminManager.changePage('${container.id}', ${currentPage + 1}, ${totalPages})" 
+                 ${currentPage === totalPages ? 'disabled' : ''}>다음</button>`;
+        
+        container.innerHTML = html;
+        
+        // 페이지 변경 함수 저장
+        this.pageHandlers = this.pageHandlers || {};
+        this.pageHandlers[container.id] = onPageChange;
+    }
+    
+    // 페이지 클릭 처리
+    handlePageClick(page, containerId) {
+        if (this.pageHandlers && this.pageHandlers[containerId]) {
+            this.pageHandlers[containerId](page);
+        }
+    }
+    
+    // 페이지 변경
+    changePage(containerId, page, totalPages) {
+        if (page < 1 || page > totalPages) return;
+        this.handlePageClick(page, containerId);
     }
 
     // 알림 읽음 처리
@@ -1220,7 +1295,7 @@ async function searchUsers() {
             return;
         }
 
-        // 검색 결과 표시 (loadUsers와 동일한 형식)
+        // 검색 결과 표시 (로드와 동일한 형식)
         const usersWithActivity = await Promise.all(users.map(async (user) => {
             const { data: lastActivity } = await adminManager.client
                 .from('user_activities')
@@ -1276,5 +1351,57 @@ async function searchUsers() {
 
     } catch (error) {
         console.error('검색 오류:', error);
+    }
+}
+
+// 시스템 알림 발송 함수
+async function sendSystemNotification() {
+    const message = document.getElementById('system-message').value.trim();
+    
+    if (!message) {
+        alert('메시지를 입력해주세요.');
+        return;
+    }
+    
+    try {
+        // 모든 사용자 가져오기
+        const { data: users, error: usersError } = await adminManager.client
+            .from('users')
+            .select('id, name');
+        
+        if (usersError) throw usersError;
+        
+        if (!users || users.length === 0) {
+            alert('알림을 받을 사용자가 없습니다.');
+            return;
+        }
+        
+        // 각 사용자에게 알림 생성
+        const notifications = users.map(user => ({
+            user_id: user.id,
+            type: 'system',
+            message: `[시스템 알림] ${message}`,
+            is_read: false,
+            created_at: new Date().toISOString()
+        }));
+        
+        // 알림 삽입
+        const { error: notifError } = await adminManager.client
+            .from('notifications')
+            .insert(notifications);
+        
+        if (notifError) throw notifError;
+        
+        alert(`${users.length}명의 사용자에게 알림을 발송했습니다.`);
+        document.getElementById('system-message').value = '';
+        
+        // 알림 목록 새로고침
+        if (typeof adminManager.loadNotifications === 'function') {
+            adminManager.loadNotifications('all');
+        }
+        
+    } catch (error) {
+        console.error('시스템 알림 발송 오류:', error);
+        alert('알림 발송에 실패했습니다: ' + error.message);
     }
 }
