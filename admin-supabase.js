@@ -242,6 +242,50 @@ class AdminSupabaseManager {
         }
     }
 
+    // 광고 추가
+    async addAd() {
+        const category = document.getElementById('ad-category').value;
+        const title = document.getElementById('ad-title').value;
+        const content = document.getElementById('ad-content').value;
+        const linkUrl = document.getElementById('ad-link').value;
+        const imageUrl = document.getElementById('ad-image').value;
+
+        if (!title || !content) {
+            alert('제목과 내용은 필수 입력 항목입니다.');
+            return;
+        }
+
+        try {
+            const { data, error } = await this.client
+                .from('ad_banners')
+                .insert([{
+                    category,
+                    title,
+                    content,
+                    link_url: linkUrl || null,
+                    image_url: imageUrl || null,
+                    is_active: true,
+                    click_count: 0
+                }]);
+
+            if (error) throw error;
+
+            alert('광고 배너가 추가되었습니다.');
+            
+            // 입력 필드 초기화
+            document.getElementById('ad-title').value = '';
+            document.getElementById('ad-content').value = '';
+            document.getElementById('ad-link').value = '';
+            document.getElementById('ad-image').value = '';
+            
+            // 목록 새로고침
+            this.loadAds(category);
+        } catch (error) {
+            console.error('광고 추가 오류:', error);
+            alert('광고 추가에 실패했습니다.');
+        }
+    }
+
     // 광고 배너 로드
     async loadAds(category = 'insurance') {
         const container = document.getElementById('ads-container');
@@ -771,9 +815,10 @@ class AdminSupabaseManager {
                         <div style="font-weight: bold; margin-bottom: 5px;">${contact.name}</div>
                         <div style="font-size: 14px; color: #666; margin-bottom: 3px;">📞 ${contact.phone}</div>
                         <div style="font-size: 12px; color: #666; margin-bottom: 3px;">🏷️ ${this.getEmergencyTypeText(contact.type)}</div>
-                        ${contact.address ? `<div style="font-size: 12px; color: #666;">📍 ${contact.address}</div>` : ''}
+                        ${contact.emergency_url ? `<div style="font-size: 12px; color: #007bff; margin-bottom: 3px;">🔗 ${contact.emergency_url}</div>` : ''}
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
+                        ${contact.emergency_url ? `<button class="btn btn-small" onclick="adminManager.testEmergencyUrl('${contact.emergency_url}', '${contact.name}')">테스트</button>` : ''}
                         <button class="btn btn-small btn-danger" onclick="adminManager.deleteEmergencyContact('${contact.id}')">삭제</button>
                     </div>
                 </div>
@@ -801,7 +846,7 @@ class AdminSupabaseManager {
         const name = document.getElementById('emergency-name').value;
         const phone = document.getElementById('emergency-phone').value;
         const type = document.getElementById('emergency-type').value;
-        const address = document.getElementById('emergency-address').value;
+        const emergencyUrl = document.getElementById('emergency-url').value;
 
         if (!name || !phone) {
             alert('기관명과 전화번호는 필수입니다.');
@@ -815,7 +860,7 @@ class AdminSupabaseManager {
                     name,
                     phone,
                     type,
-                    address: address || null
+                    emergency_url: emergencyUrl || null
                 });
 
             if (error) throw error;
@@ -824,7 +869,7 @@ class AdminSupabaseManager {
             document.getElementById('emergency-name').value = '';
             document.getElementById('emergency-phone').value = '';
             document.getElementById('emergency-type').value = 'fire';
-            document.getElementById('emergency-address').value = '';
+            document.getElementById('emergency-url').value = '';
 
             alert('비상 연락처가 추가되었습니다.');
             await this.loadEmergencyContacts();
@@ -832,6 +877,100 @@ class AdminSupabaseManager {
         } catch (error) {
             console.error('비상 연락처 추가 오류:', error);
             alert('비상 연락처 추가에 실패했습니다.');
+        }
+    }
+
+    // 72시간 긴급 상황 시 자동 전송 기능
+    async sendEmergencyAlert(userId, userInfo) {
+        try {
+            // 모든 활성화된 긴급연락 URL 가져오기
+            const { data: emergencyContacts } = await this.client
+                .from('emergency_contacts')
+                .select('*')
+                .not('emergency_url', 'is', null);
+
+            if (!emergencyContacts || emergencyContacts.length === 0) {
+                console.log('등록된 긴급연락 URL이 없습니다.');
+                return;
+            }
+
+            // 사용자 정보 준비
+            const emergencyData = {
+                alert_type: 'critical_emergency',
+                timestamp: new Date().toISOString(),
+                user: {
+                    id: userInfo.id,
+                    name: userInfo.name,
+                    email: userInfo.email,
+                    phone: userInfo.phone,
+                    address: userInfo.address,
+                    special_notes: userInfo.special_notes
+                },
+                emergency_level: '72시간 이상 무응답',
+                status: '긴급 - 즉시 확인 필요',
+                last_activity: userInfo.last_activity,
+                emergency_contacts: userInfo.emergency_contacts
+            };
+
+            // 각 긴급연락 URL로 전송
+            const sendPromises = emergencyContacts.map(contact => 
+                this.sendToEmergencyUrl(contact.emergency_url, emergencyData, contact.name)
+            );
+
+            const results = await Promise.allSettled(sendPromises);
+            
+            // 전송 결과 로그
+            results.forEach((result, index) => {
+                if (result.status === 'fulfilled') {
+                    console.log(`✅ ${emergencyContacts[index].name}에 긴급 알림 전송 완료`);
+                } else {
+                    console.error(`❌ ${emergencyContacts[index].name} 전송 실패:`, result.reason);
+                }
+            });
+
+        } catch (error) {
+            console.error('긴급 알림 전송 오류:', error);
+        }
+    }
+
+    // URL로 긴급 정보 전송
+    async sendToEmergencyUrl(url, data, contactName) {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'AnsimnCare-Emergency-System/1.0'
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        return response.json();
+    }
+
+    // 긴급연락 URL 테스트
+    async testEmergencyUrl(url, contactName) {
+        if (!confirm(`${contactName}의 긴급연락 URL을 테스트하시겠습니까?`)) {
+            return;
+        }
+
+        try {
+            const testData = {
+                alert_type: 'test',
+                timestamp: new Date().toISOString(),
+                message: '안심케어 시스템 테스트입니다.',
+                test: true
+            };
+
+            await this.sendToEmergencyUrl(url, testData, contactName);
+            alert(`✅ ${contactName} 테스트 전송 완료`);
+
+        } catch (error) {
+            console.error('테스트 전송 오류:', error);
+            alert(`❌ ${contactName} 테스트 실패: ${error.message}`);
         }
     }
 
